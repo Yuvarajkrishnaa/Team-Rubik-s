@@ -33,59 +33,86 @@
 
 #include "core/memcheck.h"
 
+#include <QPainter>
+
+#include <cmath>
+
 UBColorPicker::UBColorPicker(QWidget* parent)
-    : QFrame(parent)
-    , mSelectedColorIndex(0)
+    : QFrame(parent),
+      mRadius(50) // Set an initial radius for the circular palette
 {
-    // NOOP
+    mColors.append(Qt::red);
+    mColors.append(Qt::green);
+    mColors.append(Qt::blue);
+    mColors.append(Qt::yellow);
+    mColors.append(Qt::magenta);
+    mColors.append(Qt::cyan);
+    mSelectedColorIndex = 0;
 }
 
-UBColorPicker::UBColorPicker(QWidget* parent, const QList<QColor>& colors, int pSelectedColorIndex)
-    : QFrame(parent)
-    , mColors(colors)
-    , mSelectedColorIndex(pSelectedColorIndex)
+UBColorPicker::UBColorPicker(QWidget* parent, int radius, const QList<QColor>& colors, int pSelectedColorIndex)
+    : QFrame(parent),
+      mColors(colors),
+      mSelectedColorIndex(pSelectedColorIndex),
+      mRadius(radius)
 {
-    // NOOP
+    // Initialize with the provided colors and radius
 }
-
 
 UBColorPicker::~UBColorPicker()
 {
     // NOOP
 }
 
-
-void UBColorPicker::paintEvent ( QPaintEvent * event )
+void UBColorPicker::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
 
     QPainter painter(this);
 
+    int centerX = width() / 2;
+    int centerY = height() / 2;
+
     if (mSelectedColorIndex < mColors.size())
     {
         painter.setRenderHint(QPainter::Antialiasing);
 
-        painter.setBrush(mColors.at(mSelectedColorIndex));
+        // Calculate the angle between each color section
+        float angle = 2 * M_PI / mColors.size();
 
-        painter.drawRect(0, 0, width(), height());
+        for (int i = 0; i < mColors.size(); ++i)
+        {
+            float startAngle = i * angle;
+            float endAngle = (i + 1) * angle;
+
+            // Draw a sector for each color
+            painter.setBrush(mColors.at(i));
+            painter.drawPie(centerX - mRadius, centerY - mRadius, 2 * mRadius, 2 * mRadius,
+                            qRound(startAngle * 180.0 / M_PI), qRound(angle * 180.0 / M_PI));
+        }
     }
-
 }
 
-void UBColorPicker::mousePressEvent ( QMouseEvent * event )
+void UBColorPicker::mousePressEvent(QMouseEvent* event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
-        mSelectedColorIndex++;
+        // Calculate the angle corresponding to the mouse click position
+        int centerX = width() / 2;
+        int centerY = height() / 2;
+        double dx = event->x() - centerX;
+        double dy = event->y() - centerY;
+        double angle = atan2(dy, dx);
 
-        if (mSelectedColorIndex >= mColors.size())
-            mSelectedColorIndex = 0;
+        if (angle < 0)
+            angle += 2 * M_PI;
 
+        // Determine the selected color based on the angle
+        int colorIndex = static_cast<int>(angle / (2 * M_PI) * mColors.size());
+
+        mSelectedColorIndex = colorIndex;
         repaint();
 
         emit colorSelected(mColors.at(mSelectedColorIndex));
-
     }
 }
-
-
